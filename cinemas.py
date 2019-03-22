@@ -31,55 +31,66 @@ def fetch_afisha_titles():
 
 
 def fetch_movie_id(movie_title):
+    resp = requests.get(
+        KINOPOISK_URL,
+        params={
+            "kp_query": movie_title
+        },
+        headers={
+            "User-Agent": USER_AGENT
+        }
+    )
+
+    page = BeautifulSoup(resp.text, "html.parser")
+    most_wanted = page.find("div", {"class": "most_wanted"})
+    if not most_wanted:
+        return None
+
+    try:
+        return page.find("a", text=movie_title)["data-id"]
+    except (KeyError, TypeError):
+        return None
+
+
+def fetch_movie_page(proxy, movie_id, timeout=3):
+    try:
         resp = requests.get(
-            KINOPOISK_URL,
-            params={
-                "kp_query": movie_title
-            },
+            "{}/film/{}/".format(
+                KINOPOISK_URL,
+                movie_id
+            ),
             headers={
                 "User-Agent": USER_AGENT
-            }
+            },
+            proxies={"https": proxy},
+            timeout=timeout
         )
-
-        page = BeautifulSoup(resp.text, "html.parser")
-        most_wanted = page.find("div", {"class": "most_wanted"})
-        if not most_wanted:
-            return None
-
-        try:
-            return page.find("a", text=movie_title)["data-id"]
-        except (KeyError, TypeError):
-            return None
+        return resp.text
+    except requests.exceptions.RequestException:
+        return None
 
 
-def fetch_movie_info(proxies, movie_id, timeout=3):
+def parse_movie_page(page_soup):
+    try:
+        rating_value = page_soup.find("meta", itemprop="ratingValue")["content"]
+        rating_count = page_soup.find("meta", itemprop="ratingCount")["content"]
+        return float(rating_value), int(rating_count)
+    except (KeyError, TypeError):
+        return None
+
+
+def fetch_movie_info(proxies, movie_id):
     for proxy in proxies:
-        try:
-            resp = requests.get(
-                "{}/film/{}/".format(
-                    KINOPOISK_URL,
-                    movie_id
-                ),
-                headers={
-                    "User-Agent": USER_AGENT
-                },
-                proxies={"https": proxy},
-                timeout=timeout
-            )
-        except requests.exceptions.RequestException:
+        page_html = fetch_movie_page(proxy, movie_id)
+        if not page_html:
             continue
 
-        page = BeautifulSoup(resp.text, "html.parser")
+        page = BeautifulSoup(page_html, "html.parser")
         block_rating = page.find("div", {"id": "block_rating"})
         if not block_rating:
             continue
 
-        try:
-            rating_value = page.find("meta", itemprop="ratingValue")["content"]
-            rating_count = page.find("meta", itemprop="ratingCount")["content"]
-            return float(rating_value), int(rating_count)
-        except (KeyError, TypeError):
-            return None
+        return parse_movie_page(page)
 
 
 def output_movies_to_console(movies, max_movies=10):

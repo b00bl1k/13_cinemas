@@ -9,7 +9,7 @@ Install dependencies
 $ pip install -r requirements.txt
 ```
 
-Download proxy list from [freeproxy-list.ru](http://www.freeproxy-list.ru/) and save it to the `proxies.txt`.
+Download proxy list from [freeproxy-list.ru](http://www.freeproxy-list.ru/api) and save it to the `proxies.txt`.
 
 # Usage
 
